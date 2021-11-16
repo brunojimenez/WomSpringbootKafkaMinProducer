@@ -5,6 +5,11 @@ import java.util.HashMap;
 import java.util.Map;
 
 import org.apache.kafka.clients.admin.NewTopic;
+import org.apache.kafka.clients.producer.ProducerRecord;
+import org.apache.kafka.clients.producer.RecordMetadata;
+import org.apache.kafka.common.KafkaException;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -13,9 +18,17 @@ import org.springframework.kafka.config.TopicBuilder;
 import org.springframework.kafka.core.DefaultKafkaProducerFactory;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.core.ProducerFactory;
+import org.springframework.kafka.support.SendResult;
+import org.springframework.util.concurrent.ListenableFuture;
+import org.springframework.util.concurrent.ListenableFutureCallback;
 
 @SpringBootApplication
 public class WomSpringbootKafkaMinProducerApplication {
+
+	/**
+	 * Log de la clase.
+	 */
+	private static Logger log = LogManager.getLogger(WomSpringbootKafkaMinProducerApplication.class);
 
 	public static final String TOPIC = "poc-test01";
 
@@ -49,17 +62,28 @@ public class WomSpringbootKafkaMinProducerApplication {
 		return new KafkaTemplate<>(producerFactory());
 	}
 
-// TODO NO FUNCIONA
-//	@Scheduled(fixedDelay = 500, initialDelay = 1000)
-//	public void send(KafkaTemplate<String, String> kafkaTemplate) {
-//		kafkaTemplate.send(TOPIC, new Date().toString());
-//	}
-
 	@Bean
 	public ApplicationRunner runner(KafkaTemplate<String, String> kafkaTemplate) {
 		return args -> {
 			while (true) {
-				kafkaTemplate.send(TOPIC, new Date().toString());
+				ListenableFuture<SendResult<String, String>> future = kafkaTemplate.send(TOPIC, new Date().toString());
+
+				future.addCallback(new ListenableFutureCallback<SendResult<String, String>>() {
+					@Override
+					public void onSuccess(SendResult<String, String> result) {
+						RecordMetadata metadata = result.getRecordMetadata();
+						ProducerRecord<String, String> record = result.getProducerRecord();
+
+						log.info("[runner] Partition = {}, Offset = {}, value = {}", metadata.partition(),
+								metadata.offset(), record.value());
+					}
+
+					@Override
+					public void onFailure(Throwable e) {
+						log.error("[runner][Throwable] Error={}", e);
+						throw new KafkaException(e);
+					}
+				});
 				Thread.sleep(500);
 			}
 		};
