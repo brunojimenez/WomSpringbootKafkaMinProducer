@@ -74,8 +74,8 @@ public class WomSpringbootKafkaMinProducerApplication {
 						RecordMetadata metadata = result.getRecordMetadata();
 						ProducerRecord<String, String> record = result.getProducerRecord();
 
-						log.info("[runner] Partition = {}, Offset = {}, value = {}", metadata.partition(),
-								metadata.offset(), record.value());
+						log.info("[runner] value = {}, Partition = {}, Offset = {}, ", record.value(),
+								metadata.partition(), metadata.offset());
 					}
 
 					@Override
